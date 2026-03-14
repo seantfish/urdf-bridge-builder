@@ -1,5 +1,6 @@
 from pathlib import Path
 import typer
+from typing import Optional
 from typing_extensions import Annotated
 
 from urdf_bridge_builder import core
@@ -27,13 +28,22 @@ def generate(
         Path,
         typer.Option(
             "--output", "-o",
-            help="Path to save the generated bridge YAML file. Defaults to 'bridge.yaml' in the current directory.",
+            help="Path to save the generated output. Defaults to 'bridge.yaml' for YAML, or prints to stdout for launch_params.",
             resolve_path=True,
         ),
-    ] = Path("bridge.yaml"),
+    ] = None,
+    output_format: Annotated[
+        str,
+        typer.Option(
+            "--format", "-f",
+            help="Output format: 'yaml' (default) or 'launch_params'.",
+            case_sensitive=False,
+        ),
+    ] = "yaml",
 ):
     """
-    Generates a ros_urdf_bridge YAML file by parsing <bridge> tags in a URDF file.
+    Generates bridge configuration by parsing <bridge> tags in a URDF file.
+    Output can be YAML or a list of launch parameters for ros_gz_bridge.
     """
     try:
         typer.echo(f"Parsing URDF file: {urdf_path}")
@@ -46,13 +56,29 @@ def generate(
 
         bridges = [core.parse_bridge_tag(elem) for elem in bridge_elements]
         
-        yaml_content = core.generate_bridge_yaml(bridges)
-        
-        output_path.write_text(yaml_content)
-        typer.echo(f"Successfully generated bridge YAML to: {output_path}")
+        if output_format == "yaml":
+            content = core.generate_bridge_yaml(bridges)
+            if output_path is None:
+                output_path = Path("bridge.yaml")
+            output_path.write_text(content)
+            typer.echo(f"Successfully generated bridge YAML to: {output_path}")
+        elif output_format == "launch_params":
+            # For launch_params, generate a Python-style list of dicts.
+            # Use repr() to get a string representation that can be directly used in a Python launch file.
+            content = core.generate_launch_params(bridges)
+            formatted_content = repr(content) 
+
+            if output_path is None:
+                typer.echo("Generated launch parameters:")
+                typer.echo(formatted_content)
+            else:
+                output_path.write_text(formatted_content)
+                typer.echo(f"Successfully generated launch parameters to: {output_path}")
+        else:
+            raise ValueError(f"Unknown output format: {output_format}. Expected 'yaml' or 'launch_params'.")
 
     except FileNotFoundError as e:
-        typer.echo(f"Error: {e}", err=True)
+        typer.echo(f"Error: URDF file not found: {e}", err=True)
         raise typer.Exit(code=1)
     except Exception as e:
         typer.echo(f"An unexpected error occurred: {e}", err=True)

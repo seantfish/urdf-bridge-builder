@@ -25,6 +25,10 @@ class BridgeConfig:
             "direction": self.direction,
         }
 
+    def get_ros_gz_bridge_direction(self) -> str:
+        """Converts the internal direction string to the ros_gz_bridge launch parameter format."""
+        return self.direction.upper()
+
 def parse_urdf(urdf_path: Path) -> ET.Element:
     """
     Parses a URDF (XML) file and returns its root element.
@@ -107,6 +111,55 @@ def generate_bridge_yaml(bridges: List[BridgeConfig]) -> str:
     bridge_dicts = [b.to_dict() for b in bridges]
     return yaml.dump(bridge_dicts, sort_keys=False, default_flow_style=False)
 
+def generate_launch_params(bridges: List[BridgeConfig]) -> List[Dict[str, Any]]:
+    """
+    Generates a list of dictionaries suitable for ros_gz_bridge launch parameters.
+
+    Args:
+        bridges: A list of BridgeConfig objects.
+
+    Returns:
+        A list of dictionaries representing the launch parameters.
+    """
+    if not bridges:
+        return []
+
+    params_list = []
+    bridge_names = []
+
+    for i, bridge in enumerate(bridges):
+        # Sanitize ros_topic to create a unique bridge name.
+        # Example: /joint_states -> joint_states
+        base_name = bridge.ros_topic.strip('/').replace('/', '_').replace('-', '_')
+        bridge_name = f"{base_name}_bridge" if base_name else f"unnamed_bridge_{i}"
+        
+        # Ensure uniqueness in case multiple bridges have identical sanitized names
+        original_bridge_name = bridge_name
+        k = 0
+        while bridge_name in bridge_names:
+            bridge_name = f"{original_bridge_name}_{k}"
+            k += 1
+
+        bridge_names.append(bridge_name)
+
+        params_list.extend([
+            {f"bridges.{bridge_name}.ros_topic_name": bridge.ros_topic},
+            {f"bridges.{bridge_name}.gz_topic_name": bridge.gz_topic},
+            {f"bridges.{bridge_name}.ros_type_name": bridge.ros_type},
+            {f"bridges.{bridge_name}.gz_type_name": bridge.gz_type},
+            {f"bridges.{bridge_name}.direction": bridge.get_ros_gz_bridge_direction()},
+        ])
+        
+        # Optional parameters could be added here if desired:
+        # {f"bridges.{bridge_name}.lazy": "False"},
+        # {f"bridges.{bridge_name}.qos_profile": "SENSOR_DATA"},
+
+    # Prepend the bridge_names list as the first parameter
+    params_list.insert(0, {"bridge_names": bridge_names})
+    
+    return params_list
+
+
 def parse_urdf_string(urdf_content: str) -> ET.Element:
     """
     Parses a URDF (XML) string and returns its root element.
@@ -159,6 +212,6 @@ def generate_from_urdf_string(
     if output_format == "yaml":
         return generate_bridge_yaml(bridges)
     elif output_format == "launch_params":
-        return [b.to_dict() for b in bridges]
+        return generate_launch_params(bridges)
     else:
         raise ValueError(f"Unknown output_format: {output_format}. Expected 'yaml' or 'launch_params'.")

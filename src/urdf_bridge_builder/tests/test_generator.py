@@ -74,8 +74,8 @@ def test_parse_bridge_tag_missing_attribute():
 def test_generate_bridge_yaml():
     """Test generation of YAML content."""
     bridge_configs = [
-        core.BridgeConfig("/joint_states", "/model/test_robot/joint_states", "sensor_msgs/msg/JointState", "sensor_msgs/msg/JointState", "gz_to_ros"),
-        core.BridgeConfig("/cmd_vel", "/model/test_robot/cmd_vel", "geometry_msgs/msg/Twist", "geometry_msgs/msg/Twist", "ros_to_gz"),
+        core.BridgeConfig("/joint_states", "/model/test_robot/joint_states", "sensor_msgs/msg/JointState", "gz.msgs.Model", "gz_to_ros"),
+        core.BridgeConfig("/cmd_vel", "/model/test_robot/cmd_vel", "geometry_msgs/msg/Twist", "gz.msgs.Twist", "ros_to_gz"),
     ]
     yaml_output = core.generate_bridge_yaml(bridge_configs)
     
@@ -98,10 +98,39 @@ def test_generate_bridge_yaml():
     assert len(loaded_yaml) == 2
     assert loaded_yaml[0]["ros_topic"] == "/joint_states"
     assert loaded_yaml[0]["ros_type"] == "sensor_msgs/msg/JointState"
-    assert loaded_yaml[0]["gz_type"] == "sensor_msgs/msg/JointState"
+    assert loaded_yaml[0]["gz_type"] == "gz.msgs.Model"
     assert loaded_yaml[1]["direction"] == "ros_to_gz"
     assert loaded_yaml[1]["ros_type"] == "geometry_msgs/msg/Twist"
-    assert loaded_yaml[1]["gz_type"] == "geometry_msgs/msg/Twist"
+    assert loaded_yaml[1]["gz_type"] == "gz.msgs.Twist"
+
+def test_generate_launch_params():
+    """Test generation of launch parameters content."""
+    bridge_configs = [
+        core.BridgeConfig("/joint_states", "/model/test_robot/joint_states", "sensor_msgs/msg/JointState", "gz.msgs.Model", "gz_to_ros"),
+        core.BridgeConfig("/cmd_vel", "/model/test_robot/cmd_vel", "geometry_msgs/msg/Twist", "gz.msgs.Twist", "ros_to_gz"),
+        core.BridgeConfig("/feedback", "/model/test_robot/feedback", "std_msgs/msg/String", "gz.msgs.StringMsg", "bidirectional"),
+    ]
+    launch_params_output = core.generate_launch_params(bridge_configs)
+
+    expected_launch_params = [
+        {"bridge_names": ["joint_states_bridge", "cmd_vel_bridge", "feedback_bridge"]},
+        {"bridges.joint_states_bridge.ros_topic_name": "/joint_states"},
+        {"bridges.joint_states_bridge.gz_topic_name": "/model/test_robot/joint_states"},
+        {"bridges.joint_states_bridge.ros_type_name": "sensor_msgs/msg/JointState"},
+        {"bridges.joint_states_bridge.gz_type_name": "gz.msgs.Model"},
+        {"bridges.joint_states_bridge.direction": "GZ_TO_ROS"},
+        {"bridges.cmd_vel_bridge.ros_topic_name": "/cmd_vel"},
+        {"bridges.cmd_vel_bridge.gz_topic_name": "/model/test_robot/cmd_vel"},
+        {"bridges.cmd_vel_bridge.ros_type_name": "geometry_msgs/msg/Twist"},
+        {"bridges.cmd_vel_bridge.gz_type_name": "gz.msgs.Twist"},
+        {"bridges.cmd_vel_bridge.direction": "ROS_TO_GZ"},
+        {"bridges.feedback_bridge.ros_topic_name": "/feedback"},
+        {"bridges.feedback_bridge.gz_topic_name": "/model/test_robot/feedback"},
+        {"bridges.feedback_bridge.ros_type_name": "std_msgs/msg/String"},
+        {"bridges.feedback_bridge.gz_type_name": "gz.msgs.StringMsg"},
+        {"bridges.feedback_bridge.direction": "BIDIRECTIONAL"},
+    ]
+    assert launch_params_output == expected_launch_params
 
 def test_app_generate_success(tmp_path: Path):
     """Test the full app generation flow."""
@@ -126,6 +155,41 @@ def test_app_generate_success(tmp_path: Path):
     assert len(loaded_yaml) == 3
     assert loaded_yaml[0]["ros_topic"] == "/joint_states"
     assert loaded_yaml[2]["direction"] == "bidirectional"
+
+def test_app_generate_launch_params_success(tmp_path: Path):
+    """Test the full app generation flow for launch_params format."""
+    urdf_file = create_temp_urdf_file(tmp_path, TEST_URDF_CONTENT)
+    output_file = tmp_path / "output.py" # Output to a .py file for launch_params
+
+    from typer.testing import CliRunner
+    runner = CliRunner()
+    from urdf_bridge_builder.app import app as cli_app
+    
+    # Test with output file
+    result = runner.invoke(cli_app, ["generate", str(urdf_file), "--output", str(output_file), "--format", "launch_params"])
+
+    assert result.exit_code == 0
+    assert "Successfully generated launch parameters" in result.stdout
+    assert output_file.exists()
+
+    with open(output_file, 'r') as f:
+        content = f.read()
+    
+    # Evaluate the content to ensure it's a valid Python list of dicts
+    loaded_params = eval(content) 
+    assert isinstance(loaded_params, list)
+    assert len(loaded_params) > 0
+    assert loaded_params[0]["bridge_names"] == ["joint_states_bridge", "cmd_vel_bridge", "feedback_bridge"]
+    assert any(p.get("bridges.joint_states_bridge.direction") == "GZ_TO_ROS" for p in loaded_params)
+    
+    # Test without output file (print to stdout)
+    result_stdout = runner.invoke(cli_app, ["generate", str(urdf_file), "--format", "launch_params"])
+    assert result_stdout.exit_code == 0
+    assert "Generated launch parameters:" in result_stdout.stdout
+    # Check if the output contains a recognizable part of the generated list
+    assert "'bridge_names': ['joint_states_bridge', 'cmd_vel_bridge', 'feedback_bridge']" in result_stdout.stdout
+    assert "'bridges.joint_states_bridge.ros_topic_name': '/joint_states'" in result_stdout.stdout
+
 
 def test_app_generate_no_bridge_tags(tmp_path: Path):
     """Test app behavior when no bridge tags are found."""
