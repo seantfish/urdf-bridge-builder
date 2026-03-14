@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Union
 import xml.etree.ElementTree as ET
 import yaml
 import logging
@@ -126,26 +126,39 @@ def parse_urdf_string(urdf_content: str) -> ET.Element:
         logger.error(f"Error parsing URDF string: {e}")
         raise
 
-def generate_from_urdf_string(urdf_content: str) -> str:
+def generate_from_urdf_string(
+    urdf_content: str, output_format: str = "yaml"
+) -> Union[str, List[Dict[str, str]]]:
     """
     Runs the full bridge configuration generation pipeline from a URDF string.
 
     Args:
         urdf_content: The URDF content as a string.
+        output_format: The desired output format ('yaml' or 'launch_params').
+                       'yaml' returns a string, 'launch_params' returns a list of dictionaries.
 
     Returns:
-        A string containing the generated YAML content.
+        A string containing the generated YAML content if output_format is 'yaml',
+        or a list of dictionaries if output_format is 'launch_params'.
 
     Raises:
         ET.ParseError: If the URDF string is not well-formed XML.
         ValueError: If any required attribute is missing from a <bridge> tag.
+        ValueError: If an unknown output_format is requested.
     """
     xml_root = parse_urdf_string(urdf_content)
     bridge_elements = extract_bridge_tags(xml_root)
     
     if not bridge_elements:
         logger.info("No <bridge> tags found in the provided URDF string.")
-        return ""
+        # Return empty list for launch_params, empty string for yaml
+        return [] if output_format == "launch_params" else ""
 
     bridges = [parse_bridge_tag(elem) for elem in bridge_elements]
-    return generate_bridge_yaml(bridges)
+    
+    if output_format == "yaml":
+        return generate_bridge_yaml(bridges)
+    elif output_format == "launch_params":
+        return [b.to_dict() for b in bridges]
+    else:
+        raise ValueError(f"Unknown output_format: {output_format}. Expected 'yaml' or 'launch_params'.")
