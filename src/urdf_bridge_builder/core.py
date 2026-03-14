@@ -106,3 +106,46 @@ def generate_bridge_yaml(bridges: List[BridgeConfig]) -> str:
     """
     bridge_dicts = [b.to_dict() for b in bridges]
     return yaml.dump(bridge_dicts, sort_keys=False, default_flow_style=False)
+
+def parse_urdf_string(urdf_content: str) -> ET.Element:
+    """
+    Parses a URDF (XML) string and returns its root element.
+
+    Args:
+        urdf_content: The URDF content as a string.
+
+    Returns:
+        The root element of the parsed XML tree.
+
+    Raises:
+        ET.ParseError: If the URDF string is not well-formed XML.
+    """
+    try:
+        return ET.fromstring(urdf_content)
+    except ET.ParseError as e:
+        logger.error(f"Error parsing URDF string: {e}")
+        raise
+
+def generate_from_urdf_string(urdf_content: str) -> str:
+    """
+    Runs the full bridge configuration generation pipeline from a URDF string.
+
+    Args:
+        urdf_content: The URDF content as a string.
+
+    Returns:
+        A string containing the generated YAML content.
+
+    Raises:
+        ET.ParseError: If the URDF string is not well-formed XML.
+        ValueError: If any required attribute is missing from a <bridge> tag.
+    """
+    xml_root = parse_urdf_string(urdf_content)
+    bridge_elements = extract_bridge_tags(xml_root)
+    
+    if not bridge_elements:
+        logger.info("No <bridge> tags found in the provided URDF string.")
+        return ""
+
+    bridges = [parse_bridge_tag(elem) for elem in bridge_elements]
+    return generate_bridge_yaml(bridges)
