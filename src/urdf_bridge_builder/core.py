@@ -151,6 +151,9 @@ def generate_launch_params(
         # {f"bridges.{bridge_name}.lazy": "False"},
         # {f"bridges.{bridge_name}.qos_profile": "SENSOR_DATA"},
     
+    # Prepend the bridge_names list as the first parameter
+    params_list.insert(0, {"bridge_names": bridge_names})
+    
     return params_list
 
 
