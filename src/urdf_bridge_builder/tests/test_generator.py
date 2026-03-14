@@ -9,17 +9,17 @@ from urdf_bridge_builder import core
 TEST_URDF_CONTENT = """
 <robot name="test_robot">
   <link name="base_link"/>
-  <bridge ros_topic="/joint_states" gz_topic="/model/test_robot/joint_states" ros_type="sensor_msgs/msg/JointState" gz_type="sensor_msgs/msg/JointState" direction="gz_to_ros"/>
-  <bridge ros_topic="/cmd_vel" gz_topic="/model/test_robot/cmd_vel" ros_type="geometry_msgs/msg/Twist" gz_type="geometry_msgs/msg/Twist" direction="ros_to_gz"/>
+  <bridge ros_topic="/joint_states" gz_topic="/model/test_robot/joint_states" ros_type="sensor_msgs/msg/JointState" gz_type="gz.msgs.Model" direction="gz_to_ros"/>
+  <bridge ros_topic="/cmd_vel" gz_topic="/model/test_robot/cmd_vel" ros_type="geometry_msgs/msg/Twist" gz_type="gz.msgs.Twist" direction="ros_to_gz"/>
   <link name="end_effector"/>
-  <bridge ros_topic="/feedback" gz_topic="/model/test_robot/feedback" ros_type="std_msgs/msg/String" gz_type="std_msgs/msg/String" direction="bidirectional"/>
+  <bridge ros_topic="/feedback" gz_topic="/model/test_robot/feedback" ros_type="std_msgs/msg/String" gz_type="gz.msgs.StringMsg" direction="bidirectional"/>
 </robot>
 """
 
 INVALID_URDF_CONTENT = """
 <robot name="test_robot">
   <link name="base_link"/>
-  <bridge ros_topic="/joint_states" gz_topic="/model/test_robot/joint_states" ros_type="sensor_msgs/msg/JointState" gz_type="sensor_msgs/msg/JointState"/> <!-- Missing direction -->
+  <bridge ros_topic="/joint_states" gz_topic="/model/test_robot/joint_states" ros_type="sensor_msgs/msg/JointState" gz_type="gz.msgs.Model"/> <!-- Missing direction -->
 </robot>
 """
 
@@ -83,12 +83,12 @@ def test_generate_bridge_yaml():
 - ros_topic: /joint_states
   gz_topic: /model/test_robot/joint_states
   ros_type: sensor_msgs/msg/JointState
-  gz_type: sensor_msgs/msg/JointState
+  gz_type: gz.msgs.Model
   direction: gz_to_ros
 - ros_topic: /cmd_vel
   gz_topic: /model/test_robot/cmd_vel
   ros_type: geometry_msgs/msg/Twist
-  gz_type: geometry_msgs/msg/Twist
+  gz_type: gz.msgs.Twist
   direction: ros_to_gz
 """
     assert yaml_output == expected_yaml
