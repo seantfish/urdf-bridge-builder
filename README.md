@@ -22,7 +22,8 @@ Example `<bridge>` tag:
 <bridge
   ros_topic="/my_robot/cmd_vel"
   gz_topic="/model/my_robot/cmd_vel"
-  type="geometry_msgs/msg/Twist"
+  ros_type="geometry_msgs/msg/Twist"
+  gz_type="gz.msgs.Twist"
   direction="ros_to_gz"
 />
 ```
@@ -30,7 +31,8 @@ Example `<bridge>` tag:
 Attributes:
 - `ros_topic`: The ROS 2 topic name.
 - `gz_topic`: The Gazebo topic name.
-- `type`: The ROS 2 message type (e.g., `geometry_msgs/msg/Twist`). This type is used for both ROS and Gazebo sides of the bridge.
+- `ros_type`: The ROS 2 message type (e.g., `geometry_msgs/msg/Twist`).
+- `gz_type`: The Gazebo message type.
 - `direction`: The direction of the bridge. Can be `ros_to_gz`, `gz_to_ros`, or `bidirectional`.
 
 ### Generating the Bridge YAML
@@ -49,8 +51,8 @@ If `my_robot.urdf` contains:
 ```xml
 <robot name="my_robot">
   <link name="base_link"/>
-  <bridge ros_topic="/joint_states" gz_topic="/model/my_robot/joint_states" type="sensor_msgs/msg/JointState" direction="gz_to_ros"/>
-  <bridge ros_topic="/cmd_vel" gz_topic="/model/my_robot/cmd_vel" type="geometry_msgs/msg/Twist" direction="ros_to_gz"/>
+  <bridge ros_topic="/joint_states" gz_topic="/model/my_robot/joint_states" ros_type="sensor_msgs/msg/JointState" gz_type="gz.msgs.Model" direction="gz_to_ros"/>
+  <bridge ros_topic="/cmd_vel" gz_topic="/model/my_robot/cmd_vel" ros_type="geometry_msgs/msg/Twist" gz_type="gz.msgs.Twist" direction="ros_to_gz"/>
 </robot>
 ```
 
@@ -59,16 +61,16 @@ Running `urdf-bridge-builder generate my_robot.urdf` will create `bridge.yaml`:
 - ros_topic: /joint_states
   gz_topic: /model/my_robot/joint_states
   ros_type: sensor_msgs/msg/JointState
-  gz_type: sensor_msgs/msg/JointState
+  gz_type: gz.msgs.Model
   direction: gz_to_ros
 - ros_topic: /cmd_vel
   gz_topic: /model/my_robot/cmd_vel
   ros_type: geometry_msgs/msg/Twist
-  gz_type: geometry_msgs/msg/Twist
+  gz_type: gz.msgs.Twist
   direction: ros_to_gz
 ```
 
-This `bridge.yaml` file can then be used with `ros_urdf_bridge`.
+This `bridge.yaml` file can then be used with `ros_gz_bridge`.
 
 ## Development
 
